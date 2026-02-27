@@ -518,10 +518,6 @@
         return today >= q.startDate;
       });
 
-      const doneQueues = queues.filter(q => q.status === 'done');
-      const progressValue = activeQueues.length + doneQueues.length > 0 
-          ? Math.round((doneQueues.length / (activeQueues.length + doneQueues.length)) * 100) : 0;
-
       const filteredQueues = queues.filter(q => {
         const matchesSearch = q.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || q.workType.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesTab = listSubTab === 'active' ? q.status !== 'done' : q.status === 'done';
@@ -599,17 +595,6 @@
                         </div>
                     </div>
                     
-                    {/* Progress Bar */}
-                    <div className="cyber-shape bg-[#050b1c] border border-slate-800 p-4 relative">
-                        <div className="flex justify-between items-end mb-2">
-                            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest flex items-center gap-2"><Activity size={12}/> COMPLETE RATE</span>
-                            <span className="text-xl font-bold text-[#4a72d6]">{progressValue}%</span>
-                        </div>
-                        <div className="h-1 w-full bg-slate-800 overflow-hidden relative">
-                            <div className="h-full bg-[#4a72d6] shadow-[0_0_10px_#4a72d6]" style={{ width: `${progressValue}%` }}></div>
-                        </div>
-                    </div>
-
                     <div className="animate-fade-in">
                         <div className="flex justify-between items-center mb-4 px-1 border-b border-slate-900 pb-2">
                             <h3 className="font-bold text-white text-sm uppercase tracking-[0.2em] italic flex items-center gap-2">
@@ -763,5 +748,4 @@
     root.render(<App />);
   </script>
 </body>
-
 </html>
