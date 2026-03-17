@@ -3,15 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>KOSAME Gallery</title>
-  
-  <script crossorigin src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <base target="_top">
+  <title>Kosame - Queue System</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  
-  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
-
   <script>
     tailwind.config = {
       theme: {
@@ -35,6 +29,11 @@
       }
     }
   </script>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Mali:wght@400;500;600;700&display=swap" rel="stylesheet">
 
   <style>
     body { 
@@ -44,15 +43,15 @@
       overflow-x: hidden; 
     }
     
-    .no-scrollbar::-webkit-scrollbar { display: none; }
-    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    /* Custom Scrollbar */
+    .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background: #ffdf73; border-radius: 10px; }
     
     @keyframes slideUp { from { transform: translateY(100%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
     .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
-    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    .animate-fade-in { animation: fadeIn 0.4s ease-out; }
-    .animate-pop { animation: popIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
-    @keyframes popIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .animate-fade-in { animation: fadeIn 0.3s ease-out; }
 
     /* Stripe Pattern Header & Footer */
     .striped-header-footer {
@@ -60,18 +59,31 @@
       background-size: 40px 40px;
       animation: moveStripes 2s linear infinite;
       border-bottom: 4px solid #fdf4e1;
+      position: fixed;
+      width: 100%;
+      height: 24px;
+      z-index: 50;
     }
+    .stripe-top { top: 0; left: 0; }
+    .stripe-bottom { bottom: 0; left: 0; border-top: 4px solid #fdf4e1; border-bottom: none; }
+
     @keyframes moveStripes {
       0% { background-position: 0 0; }
       100% { background-position: 40px 0; }
     }
 
-    /* Animation สำหรับดาวกระพริบวิ้งค์ๆ */
+    /* Animation สำหรับดาวกระพริบ */
     @keyframes twinkleStar {
       0%, 100% { opacity: 0.2; transform: scale(0.6); }
       50% { opacity: 1; transform: scale(1.1); filter: drop-shadow(0 0 4px rgba(255, 223, 115, 0.8)); }
     }
-    .star { position: absolute; pointer-events: none; animation: twinkleStar linear infinite; z-index: 0; }
+    
+    .star {
+      position: absolute;
+      pointer-events: none;
+      animation: twinkleStar linear infinite;
+      z-index: 0;
+    }
 
     /* Kosame Card Style */
     .kosame-card {
@@ -82,44 +94,100 @@
       box-shadow: 0 4px 0 0 #cceaff;
       transition: all 0.3s;
     }
+    
+    /* Hide Calendar Icon in Date Input */
+    input[type="date"]::-webkit-calendar-picker-indicator { 
+      opacity: 0.6; cursor: pointer; width: 14px; height: 14px; filter: hue-rotate(200deg) contrast(0.5) sepia(1);
+    }
+
+    /* Marquee สำหรับช่อง Notice */
+    @keyframes marquee {
+      0% { transform: translateX(100%); }
+      100% { transform: translateX(-150%); }
+    }
+    .animate-marquee {
+      display: inline-block;
+      white-space: nowrap;
+      animation: marquee 12s linear infinite;
+      padding-left: 10px;
+    }
   </style>
 </head>
-<body class="selection:bg-kosame-yellow/50 selection:text-kosame-browndark">
-  <div id="root" class="w-full"></div>
+<body class="relative selection:bg-kosame-yellow/50 selection:text-kosame-browndark">
+  
+  <div class="striped-header-footer stripe-top shadow-sm"></div>
+  <div class="striped-header-footer stripe-bottom shadow-[0_-2px_4px_rgba(0,0,0,0.02)]"></div>
+
+  <div id="root" class="relative z-10"></div>
 
   <script type="text/babel">
-    const { useState, useEffect } = React;
+    const { useState, useEffect, useRef } = React;
+    
+    const API_URL = "https://script.google.com/macros/s/AKfycbx6VUsx5lG8XJMbl04ZczeBgJg_icxxxpf2hC10piRo48JVqcGtcOWLnpKUdnJ85XA/exec"; 
 
-    const GAS_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbytobmF1mXqlyvVrXxbZilcvQpYD4cNxTLAUMsbbO6Eq3PlD0GBqBQWRKrahCZC7umL/exec";
-
-    const Icon = ({ name, size = 24, className = "" }) => {
-      const icons = {
-        User: <><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></>,
-        Sticker: <><path d="M15.5 3H5a2 2 0 0 0-2 2v14c0 1.1.9 2 2 2h14a2 2 0 0 0 2-2V8.5L15.5 3Z"/><path d="M15 3v6h6"/></>,
-        Facebook: <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>,
-        Smile: <><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" x2="9.01" y1="9" y2="9"/><line x1="15" x2="15.01" y1="9" y2="9"/></>,
-        Trophy: <><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></>,
-        MoreHorizontal: <><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></>,
-        LayoutGrid: <><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></>,
-        ArrowLeft: <><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></>,
-        Plus: <><path d="M5 12h14"/><path d="M12 5v14"/></>,
-        Lock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></>,
-        Unlock: <><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/></>,
-        X: <><path d="M18 6 6 18"/><path d="m6 6 12 12"/></>,
-        Upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></>,
-        ImageIcon: <><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></>,
-        ShieldAlert: <><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></>,
-        Key: <><circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6"/><path d="m15.5 7.5 3 3L22 7l-3-3"/></>,
-        ChevronLeft: <path d="m15 18-6-6 6-6"/>,
-        ChevronRight: <path d="m9 18 6-6-6-6"/>,
-        Loader: <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-      };
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-          {icons[name] || <circle cx="12" cy="12" r="10" />}
-        </svg>
-      );
+    const server = {
+      request: async (action, payload = null) => {
+        try {
+          const response = await fetch(API_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+            body: JSON.stringify({ action: action, payload: payload })
+          });
+          const data = await response.json();
+          if (data.error) throw new Error(data.error);
+          return data;
+        } catch (error) {
+          console.error("API Request Error:", error);
+          throw error;
+        }
+      },
+      getData: () => server.request('getInitialData'),
+      addQueue: (data) => server.request('addQueue', data),
+      updateQueue: (data) => server.request('updateQueue', data),
+      deleteQueue: (id) => server.request('deleteQueue', id),
+      saveSettings: (settings) => server.request('saveSettings', settings),
     };
+
+    const IconWrapper = ({ name, size = 24, className }) => {
+      const ref = useRef(null);
+      useEffect(() => {
+        if (ref.current) {
+          lucide.createIcons({
+            root: ref.current,
+            nameAttr: 'data-lucide',
+            attrs: { class: className, width: size, height: size }
+          });
+        }
+      }, [name, size, className]); 
+      const iconKebab = name.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
+      return <span ref={ref} className="inline-flex items-center justify-center"><i data-lucide={iconKebab}></i></span>;
+    };
+    const createIcon = (iconName) => (props) => <IconWrapper name={iconName} {...props} />;
+
+    const Plus = createIcon('Plus');
+    const Calendar = createIcon('Calendar');
+    const User = createIcon('User');
+    const CheckCircle = createIcon('CheckCircle');
+    const Home = createIcon('Home');
+    const List = createIcon('List');
+    const X = createIcon('X');
+    const CreditCard = createIcon('CreditCard');
+    const MessageSquare = createIcon('MessageSquare');
+    const Briefcase = createIcon('Briefcase');
+    const Play = createIcon('Play');
+    const Search = createIcon('Search');
+    const History = createIcon('History');
+    const Trash2 = createIcon('Trash2');
+    const ShieldCheck = createIcon('ShieldCheck');
+    const Lock = createIcon('Lock');
+    const Key = createIcon('Key');
+    const ChevronLeft = createIcon('ChevronLeft');
+    const ChevronRight = createIcon('ChevronRight');
+    const CalendarDays = createIcon('CalendarDays');
+    const Circle = createIcon('Circle');
+    const ArrowLeft = createIcon('ArrowLeft');
+
+    const ADMIN_PASSWORD = "0615";
 
     const SkyBackground = () => {
       const SparkleIcon = ({ color, size }) => (
@@ -143,362 +211,601 @@
       return <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">{stars}</div>;
     };
 
-    const App = () => {
-      const [view, setView] = useState('home'); 
-      const [selectedCategory, setSelectedCategory] = useState(null);
-      const [isAdmin, setIsAdmin] = useState(false);
-      const [showAddModal, setShowAddModal] = useState(false);
-      const [selectedImageIndex, setSelectedImageIndex] = useState(null);
-      const [isLightBoxOpen, setIsLightBoxOpen] = useState(false);
-      const [works, setWorks] = useState([]);
-      const [loading, setLoading] = useState(true);
-      const [passwordInput, setPasswordInput] = useState('');
-      const [newWork, setNewWork] = useState({ title: '', category: 'chibi' });
-      const [file, setFile] = useState(null);
-      const [isUploading, setIsUploading] = useState(false);
+    const StatusBadge = ({ type }) => {
+      const isUrgent = type === 'urgent';
+      return (
+        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${isUrgent ? 'bg-red-50 text-red-500 border-red-200' : 'bg-kosame-cream text-kosame-brown border-kosame-cream'}`}>
+          {isUrgent ? 'Urgent' : 'Normal'}
+        </span>
+      );
+    };
 
-      const ADMIN_PASSWORD = "1234";
-
-      const categories = [
-        { id: 'profile', label: 'Profile', icon: 'User' },
-        { id: 'emote', label: 'Emote', icon: 'Sticker' },
-        { id: 'fb-sticker', label: 'FB Sticker', icon: 'Facebook' },
-        { id: 'chibi', label: 'Chibi', icon: 'Smile' },
-        { id: 'badges', label: 'Sub Badges', icon: 'Trophy' },
-        { id: 'etc', label: 'ETC.', icon: 'MoreHorizontal' },
-      ];
-
-      const fetchWorksData = async () => {
-        setLoading(true);
-        try {
-            const response = await fetch(`${GAS_WEB_APP_URL}?action=getData`);
-            const data = await response.json();
-            setWorks(data || []);
-        } catch (error) {
-            console.error("Fetch error:", error);
-            setWorks([]);
-        } finally {
-            setLoading(false);
-        }
+    const PaymentBadge = ({ status }) => {
+      const config = {
+        paid: { color: 'text-emerald-600 bg-emerald-50 border-emerald-200', label: 'จ่ายแล้ว' },
+        deposit: { color: 'text-orange-600 bg-orange-50 border-orange-200', label: 'มัดจำ' },
+        unpaid: { color: 'text-slate-500 bg-slate-50 border-slate-200', label: 'รอชำระ' },
       };
+      const current = config[status] || config.unpaid;
+      return <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide border ${current.color}`}>{current.label}</span>;
+    };
 
-      useEffect(() => {
-        fetchWorksData();
-      }, []);
-
-      const safeWorks = Array.isArray(works) ? works : [];
-      const currentDisplayWorks = selectedCategory 
-        ? safeWorks.filter(work => work.category === selectedCategory.id)
-        : safeWorks.slice(0, 9);
-
-      const handleCategoryClick = (category) => {
-        setSelectedCategory(category);
-        setView('category');
-        window.scrollTo(0, 0);
-      };
-
-      const handleBack = () => {
-        setView('home');
-        setSelectedCategory(null);
-      };
-
-      const handleLoginSubmit = (e) => {
-        e.preventDefault();
-        if (passwordInput === ADMIN_PASSWORD) {
-          setIsAdmin(true); setView('home'); setPasswordInput('');
-        } else {
-          alert("รหัสผ่านไม่ถูกต้อง!");
-        }
-      };
-
-      const handleAddWork = async (e) => {
-        e.preventDefault();
-        if (!file || !newWork.title) return alert("กรุณาใส่ข้อมูลให้ครบถ้วน");
-        setIsUploading(true);
-
-        const reader = new FileReader();
-        reader.onloadend = async function(e) {
-            const payload = {
-                action: 'uploadFile',
-                base64: e.target.result.split(',')[1],
-                mimeType: file.type,
-                filename: file.name,
-                title: newWork.title,
-                category: newWork.category
-            };
-
-            try {
-                const response = await fetch(GAS_WEB_APP_URL, {
-                    method: "POST",
-                    body: JSON.stringify(payload)
-                });
-                
-                const res = await response.json();
-                
-                if(res.success) {
-                    alert("อัปโหลดเสร็จสิ้น 🎉");
-                    fetchWorksData();
-                    setShowAddModal(false); setFile(null); setNewWork({title:'', category:'chibi'});
-                } else {
-                    alert("Error: " + res.error);
-                }
-            } catch (error) {
-                console.error("Upload error:", error);
-                alert("อัปโหลดไม่สำเร็จ ลองใหม่อีกครั้ง");
-            } finally {
-                setIsUploading(false);
-            }
-        };
-        reader.readAsDataURL(file);
-      };
-
-      const openLightBox = (index) => {
-        setSelectedImageIndex(index);
-        setIsLightBoxOpen(true);
-      };
+    const QueueCard = ({ data, onStatusChange, onEdit, isAdmin }) => {
+      const [showStatusMenu, setShowStatusMenu] = useState(false);
+      const isDone = data.status === 'done';
+      const isDoing = data.status === 'doing';
       
-      const closeLightBox = () => {
-        setIsLightBoxOpen(false);
-        setSelectedImageIndex(null);
+      const statusConfig = {
+        todo: { color: 'bg-kosame-cream text-kosame-brown border-kosame-cream', label: 'รอดำเนินการ' },
+        doing: { color: 'bg-kosame-yellow text-white border-kosame-yellow', label: 'กำลังทำ' },
+        done: { color: 'bg-kosame-blue text-white border-kosame-blue', label: 'เสร็จสิ้น' },
       };
-      
-      const nextImage = (e) => {
-        e?.stopPropagation();
-        if (currentDisplayWorks.length > 0) {
-            setSelectedImageIndex((prev) => (prev + 1) % currentDisplayWorks.length);
-        }
-      };
-      
-      const prevImage = (e) => {
-        e?.stopPropagation();
-        if (currentDisplayWorks.length > 0) {
-            setSelectedImageIndex((prev) => (prev - 1 + currentDisplayWorks.length) % currentDisplayWorks.length);
-        }
-      };
-
-      useEffect(() => {
-        const handleKeyDown = (e) => {
-          if (!isLightBoxOpen) return;
-          if (e.key === 'ArrowRight') nextImage();
-          if (e.key === 'ArrowLeft') prevImage();
-          if (e.key === 'Escape') closeLightBox();
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-      }, [isLightBoxOpen, selectedImageIndex, currentDisplayWorks]);
+      const currentStatus = statusConfig[data.status] || statusConfig.todo;
 
       return (
-        <div className="min-h-screen pb-32 max-w-md mx-auto relative pt-10 px-5 flex flex-col text-kosame-brown">
-            
-            <SkyBackground />
-            <div className="h-6 w-full striped-header-footer fixed top-0 left-0 z-20 shadow-sm"></div>
+        <div 
+            onClick={() => { if (isAdmin && !showStatusMenu) onEdit(data); }}
+            className={`relative mb-3 group transition-all duration-300 ${isDone ? 'opacity-60 grayscale-[30%]' : 'hover:-translate-y-1'} ${isAdmin ? 'cursor-pointer' : ''} ${showStatusMenu ? 'z-50' : 'z-10'}`}
+        >
+           <div className={`kosame-card p-3 relative transition-all flex gap-3 ${isDoing ? 'bg-white border-kosame-bluedark' : 'bg-white/90'}`}>
+               <div className="flex-1 w-full">
+                   <div className="flex justify-between items-start mb-1">
+                       <div className="flex flex-wrap gap-1.5 items-center">
+                           <span className="w-6 h-6 rounded-full bg-kosame-blue text-white flex items-center justify-center font-bold text-[10px] tracking-tighter shadow-sm">
+                               {String(data.id).slice(-3)}
+                           </span>
+                           <StatusBadge type={data.type} />
+                           <PaymentBadge status={data.paymentStatus} />
+                       </div>
 
-            <div className="relative z-10 w-full flex-grow">
-                
-                {/* LOGIN VIEW */}
-                {view === 'login' && (
-                    <div className="min-h-[60vh] flex flex-col items-center justify-center animate-pop">
-                        <div className="kosame-card w-full max-w-xs p-8 text-center relative mt-8">
-                            <button onClick={handleBack} className="absolute top-4 right-4 text-kosame-brown hover:text-kosame-browndark bg-kosame-cream rounded-full p-1"><Icon name="X" size={16}/></button>
-                            <div className="w-16 h-16 bg-kosame-yellow rounded-full flex items-center justify-center text-white mb-4 mx-auto"><Icon name="Key" size={32} /></div>
-                            <h2 className="text-xl font-bold text-kosame-browndark mb-2">Admin Login</h2>
-                            <p className="text-xs text-kosame-brown mb-6">กรุณาใส่รหัสผ่านเพื่อจัดการ Gallery</p>
-                            
-                            <form onSubmit={handleLoginSubmit} className="space-y-4">
-                                <input type="password" value={passwordInput} onChange={e=>setPasswordInput(e.target.value)} placeholder="รหัสผ่าน" className="w-full bg-kosame-bg border-2 border-kosame-cream rounded-xl py-3 text-center text-kosame-browndark tracking-[0.2em] focus:border-kosame-blue focus:outline-none" autoFocus />
-                                <button type="submit" className="w-full bg-kosame-blue hover:bg-kosame-bluedark text-white font-bold py-3 rounded-xl transition-all text-sm shadow-sm">เข้าสู่ระบบ</button>
-                            </form>
-                        </div>
-                    </div>
-                )}
+                       <div className="relative ml-auto pl-2">
+                           <button 
+                               onClick={(e) => { 
+                                   e.stopPropagation(); 
+                                   if (isAdmin) setShowStatusMenu(!showStatusMenu); 
+                               }} 
+                               className={`text-[9px] px-2 py-1 rounded-full font-bold tracking-wide border flex items-center gap-1 transition-colors ${currentStatus.color} ${isAdmin ? 'hover:opacity-80 cursor-pointer shadow-sm' : 'cursor-default'}`}
+                           >
+                               {currentStatus.label}
+                               {isAdmin && <span className="text-[7px] opacity-70 ml-0.5">▼</span>}
+                           </button>
+                           
+                           {showStatusMenu && isAdmin && (
+                               <>
+                                   <div className="fixed inset-0 z-40 cursor-default" onClick={(e) => { e.stopPropagation(); setShowStatusMenu(false); }}></div>
+                                   <div className="absolute right-0 top-full mt-1 w-[104px] bg-white border-2 border-kosame-blue rounded-xl shadow-[0_4px_0_0_#cceaff] z-50 overflow-hidden flex flex-col text-[11px] font-bold animate-fade-in">
+                                       <button onClick={(e) => { e.stopPropagation(); setShowStatusMenu(false); onStatusChange(data.id, 'todo'); }} className="px-3 py-2.5 text-kosame-brown hover:bg-kosame-bg border-b border-kosame-cream text-left transition-colors">รอดำเนินการ</button>
+                                       <button onClick={(e) => { e.stopPropagation(); setShowStatusMenu(false); onStatusChange(data.id, 'doing'); }} className="px-3 py-2.5 text-kosame-yellow hover:bg-kosame-bg border-b border-kosame-cream text-left transition-colors">กำลังทำ</button>
+                                       <button onClick={(e) => { e.stopPropagation(); setShowStatusMenu(false); onStatusChange(data.id, 'done'); }} className="px-3 py-2.5 text-kosame-blue hover:bg-kosame-bg text-left transition-colors">เสร็จสิ้น</button>
+                                   </div>
+                               </>
+                           )}
+                       </div>
+                   </div>
 
-                {/* HOME & CATEGORY VIEW */}
-                {(view === 'home' || view === 'category') && (
-                    <div className="animate-fade-in mt-4">
-                        
-                        {/* Header */}
-                        <header className="mb-8 flex flex-col items-center text-center">
-                            <div className="w-24 h-24 bg-white rounded-full border-4 border-kosame-blue overflow-hidden shadow-md mb-3">
-                                <img src="https://i.pinimg.com/736x/21/df/b6/21dfb607ea0ba0df850f83dd71752b02.jpg" className="w-full h-full object-cover" alt="Kosame" />
-                            </div>
-                            <h1 className="text-3xl font-bold text-kosame-browndark tracking-wide">Kosame</h1>
-                            <div className="mt-1 bg-kosame-cream px-4 py-1 rounded-full text-xs font-bold text-kosame-brown border border-white shadow-sm inline-flex items-center gap-1">
-                                PORTFOLIO ✧.*
-                                {isAdmin && <span className="ml-1 text-[9px] bg-kosame-yellow text-white px-1.5 py-0.5 rounded">ADMIN</span>}
-                            </div>
-                        </header>
+                   <h3 className={`font-bold text-[15px] leading-tight mt-1 mb-1.5 ${isDone ? 'text-kosame-brown line-through' : 'text-kosame-browndark'}`}>
+                       {data.workType || 'Untitled Project'}
+                   </h3>
 
-                        {/* Category Grid (Home) */}
-                        {view === 'home' && (
-                            <section className="mb-8">
-                                <div className="flex items-center justify-center gap-2 mb-4">
-                                    <div className="h-[2px] w-12 bg-kosame-blue/50 rounded-full"></div>
-                                    <span className="text-xs font-bold text-kosame-blue uppercase tracking-widest px-2">Categories</span>
-                                    <div className="h-[2px] w-12 bg-kosame-blue/50 rounded-full"></div>
-                                </div>
-                                
-                                <div className="grid grid-cols-2 gap-3">
-                                    {categories.map(cat => (
-                                        <button key={cat.id} onClick={()=>handleCategoryClick(cat)} className="group kosame-card flex items-center gap-3 p-3 hover:bg-kosame-yellow hover:border-kosame-yellow transition-colors hover:-translate-y-1">
-                                            <div className="bg-kosame-cream text-kosame-blue group-hover:bg-white group-hover:text-kosame-yellow p-2 rounded-xl transition-colors">
-                                                <Icon name={cat.icon} size={20}/>
-                                            </div>
-                                            <span className="font-bold text-sm text-kosame-browndark group-hover:text-white transition-colors">{cat.label}</span>
-                                        </button>
-                                    ))}
-                                </div>
-                            </section>
-                        )}
-
-                        {/* Category Title (Category View) */}
-                        {view === 'category' && (
-                            <div className="mb-6 flex justify-between items-center bg-white/80 backdrop-blur-sm p-4 rounded-2xl border-2 border-kosame-cream shadow-sm">
-                                <div>
-                                    <h2 className="text-xl font-bold text-kosame-browndark flex items-center gap-2">
-                                        <div className="bg-kosame-yellow p-1.5 rounded-lg text-white">
-                                            <Icon name={selectedCategory?.icon} size={16}/>
-                                        </div>
-                                        {selectedCategory?.label}
-                                    </h2>
-                                </div>
-                                <div className="text-center bg-kosame-cream px-3 py-1 rounded-xl">
-                                    <span className="text-lg font-bold text-kosame-blue leading-none">{currentDisplayWorks.length}</span>
-                                    <span className="text-[10px] text-kosame-brown block font-bold">ผลงาน</span>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Gallery Grid */}
-                        <section>
-                            <div className="flex justify-center mb-4">
-                                 <span className="bg-kosame-yellow text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-sm">
-                                    {view === 'home' ? 'ผลงานล่าสุด' : `ผลงาน ${selectedCategory?.label}`}
-                                 </span>
-                            </div>
-
-                            {loading ? (
-                                <div className="py-12 flex flex-col items-center justify-center gap-3">
-                                    <div className="w-8 h-8 border-4 border-kosame-blue border-t-kosame-yellow rounded-full animate-spin"></div>
-                                    <span className="text-xs font-bold text-kosame-brown">กำลังโหลดรูปภาพ...</span>
-                                </div>
-                            ) : (
-                                <div className="grid grid-cols-3 gap-2">
-                                    {currentDisplayWorks.length > 0 ? currentDisplayWorks.map((work, index) => (
-                                        <div key={work.id} onClick={()=>openLightBox(index)} className="group relative aspect-square bg-white rounded-xl border-2 border-kosame-cream shadow-sm cursor-pointer overflow-hidden hover:border-kosame-blue transition duration-300">
-                                            <img src={work.img} className="w-full h-full object-cover group-hover:scale-110 transition duration-500" loading="lazy" alt={work.title} />
-                                            {/* Hover overlay */}
-                                            <div className="absolute inset-0 bg-kosame-blue/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center backdrop-blur-[2px]">
-                                                <span className="text-[10px] font-bold text-white text-center px-1 drop-shadow-md truncate w-full">{work.title}</span>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <div className="col-span-3 text-center py-12 bg-white/50 border-2 border-dashed border-kosame-cream rounded-2xl">
-                                            <p className="text-sm font-bold text-kosame-brown">ยังไม่มีผลงานในหมวดหมู่นี้จ้า 🎨</p>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
-                        </section>
-                    </div>
-                )}
-            </div>
-
-            {/* --- LIGHTBOX --- */}
-            {isLightBoxOpen && selectedImageIndex !== null && currentDisplayWorks[selectedImageIndex] && (
-                <div className="fixed inset-0 z-[100] bg-kosame-bg/95 backdrop-blur-sm flex flex-col items-center justify-center animate-fade-in" onClick={closeLightBox}>
-                    <div className="absolute top-0 w-full p-4 flex justify-between items-start z-20">
-                        <div className="bg-white/80 backdrop-blur px-4 py-2 rounded-2xl border-2 border-kosame-cream shadow-sm">
-                            <h3 className="text-sm font-bold text-kosame-browndark">{currentDisplayWorks[selectedImageIndex].title}</h3>
-                            <p className="text-[10px] text-kosame-blue font-bold">{categories.find(c => c.id === currentDisplayWorks[selectedImageIndex].category)?.label || 'Gallery'}</p>
-                        </div>
-                        <button onClick={closeLightBox} className="p-2 bg-kosame-cream text-kosame-brown hover:bg-kosame-yellow hover:text-white rounded-full transition-colors shadow-sm border border-white">
-                          <Icon name="X" size={20}/>
-                        </button>
-                    </div>
-
-                    <div className="relative w-full flex items-center justify-center h-full px-4" onClick={e => e.stopPropagation()}>
-                        {/* Navigation Arrows */}
-                        <button onClick={prevImage} className="absolute left-2 z-30 p-2 bg-white/80 text-kosame-blue rounded-full shadow-md hover:text-kosame-yellow"><Icon name="ChevronLeft" size={24}/></button>
-                        
-                        <div className="relative kosame-card p-2 bg-white max-w-full">
-                            <img src={currentDisplayWorks[selectedImageIndex].img} className="max-w-full max-h-[70vh] object-contain rounded-xl" alt="Artwork" />
+                   {/* ปรับให้เรียงบรรทัดเดียวกัน และดันวันที่ไปชิดขวา */}
+                   <div className="flex items-center justify-between text-[10px] text-kosame-brown">
+                        {/* ส่วนชื่อลูกค้าและช่องทาง (ชิดซ้าย) */}
+                        <div className="flex items-center gap-1.5 truncate">
+                            <span className="font-semibold text-kosame-browndark flex items-center gap-1 truncate"><User size={10} className="text-kosame-blue flex-shrink-0"/> <span className="truncate max-w-[80px]">{data.customerName || 'ลูกค้า'}</span></span>
+                            <span className="text-kosame-blue flex-shrink-0">|</span>
+                            <span className="truncate max-w-[60px]">{data.channel || 'ช่องทาง'}</span>
                         </div>
                         
-                        <button onClick={nextImage} className="absolute right-2 z-30 p-2 bg-white/80 text-kosame-blue rounded-full shadow-md hover:text-kosame-yellow"><Icon name="ChevronRight" size={24}/></button>
-                    </div>
-                    
-                    {/* Dots indicator */}
-                    <div className="absolute bottom-8 w-full px-8 flex gap-1.5 justify-center pointer-events-none flex-wrap">
-                        {currentDisplayWorks.map((_, i) => (
-                            <div key={i} className={`h-1.5 rounded-full transition-all duration-300 ${i === selectedImageIndex ? 'w-6 bg-kosame-yellow' : 'w-1.5 bg-kosame-blue/30'}`}></div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {/* --- UPLOAD MODAL (ADMIN) --- */}
-            {showAddModal && (
-                <div className="fixed inset-0 z-[90] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
-                    <div className="bg-white w-full max-w-sm kosame-card animate-slide-up relative">
-                        <button onClick={()=>setShowAddModal(false)} className="absolute top-4 right-4 text-kosame-brown bg-kosame-cream rounded-full p-1 hover:bg-kosame-yellow hover:text-white transition-colors"><Icon name="X" size={16}/></button>
-                        <div className="p-5 border-b-2 border-kosame-cream">
-                            <h4 className="text-lg font-bold text-kosame-browndark flex items-center gap-2">
-                                <div className="bg-kosame-blue p-1.5 rounded-lg text-white"><Icon name="Upload" size={18}/></div>
-                                เพิ่มผลงานใหม่
-                            </h4>
+                        {/* ส่วนวันที่ (ชิดขวา) */}
+                        <div className="flex items-center gap-1 bg-kosame-bg px-1.5 py-0.5 rounded-md border border-kosame-cream/50 flex-shrink-0">
+                            <span className="flex items-center gap-0.5"><Calendar size={10} className="text-kosame-yellow"/> {data.startDate}</span>
+                            <span className="text-kosame-blue opacity-50">|</span>
+                            <span className="font-semibold text-kosame-browndark">ส่ง: {data.deadline}</span>
                         </div>
-                        <form onSubmit={handleAddWork} className="p-5 space-y-4">
-                            <div>
-                                <label className="text-xs font-bold text-kosame-browndark block mb-1.5">ชื่อผลงาน (Title)</label>
-                                <input type="text" value={newWork.title} onChange={e=>setNewWork({...newWork, title: e.target.value})} className="w-full bg-kosame-bg border-2 border-kosame-cream focus:border-kosame-blue rounded-xl p-3 text-sm text-kosame-browndark outline-none" placeholder="เช่น น้องแมว Chibi"/>
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-kosame-browndark block mb-1.5">หมวดหมู่ (Category)</label>
-                                <select value={newWork.category} onChange={e=>setNewWork({...newWork, category: e.target.value})} className="w-full bg-kosame-bg border-2 border-kosame-cream focus:border-kosame-blue rounded-xl p-3 text-sm text-kosame-browndark outline-none appearance-none">
-                                    {categories.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
-                                </select>
-                            </div>
-                            <div className="border-2 border-dashed border-kosame-blue bg-kosame-bg/50 rounded-xl p-6 hover:bg-kosame-blue/5 transition cursor-pointer relative text-center">
-                                <input type="file" onChange={e=>setFile(e.target.files[0])} accept="image/*" className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"/>
-                                <div className="bg-white w-12 h-12 rounded-full flex items-center justify-center mx-auto text-kosame-blue mb-2 shadow-sm">
-                                    <Icon name="ImageIcon" size={24}/>
-                                </div>
-                                <p className="text-xs font-bold text-kosame-browndark">{file ? file.name : "คลิกเพื่อเลือก หรือลากไฟล์มาวาง"}</p>
-                                <p className="text-[10px] text-kosame-brown mt-1">รองรับ JPG, PNG</p>
-                            </div>
-                            <button type="submit" disabled={isUploading} className="w-full py-3 bg-kosame-yellow hover:bg-[#ebd453] text-white font-bold text-sm rounded-xl transition shadow-sm disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center gap-2">
-                                {isUploading ? <><Icon name="Loader" className="animate-spin" size={16}/> กำลังอัปโหลด...</> : "อัปโหลดรูปภาพ"}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* FOOTER NAV */}
-            <div className="h-6 w-full striped-header-footer fixed bottom-0 left-0 z-20 border-t-4 border-kosame-cream border-b-0 shadow-[0_-2px_4px_rgba(0,0,0,0.02)]"></div>
-            
-            <footer className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl border-2 border-kosame-blue shadow-[0_4px_0_0_#cceaff] rounded-full px-6 py-2 flex items-center justify-around w-[85%] max-w-[320px] z-40">
-                 <button onClick={() => window.location.href = 'index.html'} className={`flex flex-col items-center gap-1 transition-all text-kosame-brown hover:text-kosame-yellow`}>
-                    <div className={`p-2 rounded-full transition-all`}><Icon name="ArrowLeft" size={22} /></div>
-                 </button>
-                 <button onClick={handleBack} className={`flex flex-col items-center gap-1 transition-all ${view === 'home' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
-                    <div className={`${view === 'home' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><Icon name="LayoutGrid" size={22} /></div>
-                 </button>
-                 
-                 {isAdmin && (
-                    <button onClick={()=>setShowAddModal(true)} className="transform -translate-y-4 bg-kosame-yellow text-white p-3 rounded-full border-4 border-white shadow-md hover:scale-105 transition-transform">
-                        <Icon name="Plus" size={20}/>
-                    </button>
-                 )}
-
-                 <button onClick={()=>isAdmin ? setIsAdmin(false) : setView('login')} className={`flex flex-col items-center gap-1 transition-all ${isAdmin ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
-                    <div className={`${isAdmin ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><Icon name={isAdmin ? "Unlock" : "Lock"} size={22} /></div>
-                 </button>
-            </footer>
-
+                   </div>
+               </div>
+           </div>
         </div>
       );
     };
+
+    const CalendarView = ({ queues, onStatusChange, onEdit, isAdmin }) => {
+      const [currentDate, setCurrentDate] = useState(new Date());
+      const [selectedDate, setSelectedDate] = useState(new Date()); 
+
+      const getDaysInMonth = (date) => new Date(date.getFullYear(), date.getMonth() + 1, 0).getDate();
+      const getFirstDayOfMonth = (date) => new Date(date.getFullYear(), date.getMonth(), 1).getDay();
+
+      const prevMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() - 1, 1));
+      const nextMonth = () => setCurrentDate(new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1));
+
+      const monthNames = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"];
+      const daysOfWeek = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+
+      const formatDateStr = (date) => {
+          const year = date.getFullYear();
+          const month = String(date.getMonth() + 1).padStart(2, '0');
+          const day = String(date.getDate()).padStart(2, '0');
+          return `${year}-${month}-${day}`;
+      };
+
+      const renderGrid = () => {
+        const totalDays = getDaysInMonth(currentDate);
+        const startDay = getFirstDayOfMonth(currentDate);
+        const grid = [];
+
+        for (let i = 0; i < startDay; i++) {
+          grid.push(<div key={`empty-${i}`} className="min-h-[60px] bg-white/40 rounded-xl"></div>);
+        }
+
+        for (let day = 1; day <= totalDays; day++) {
+          const dateObj = new Date(currentDate.getFullYear(), currentDate.getMonth(), day);
+          const dateStr = formatDateStr(dateObj);
+          
+          const activeTasks = queues.filter(q => {
+             if (!q.startDate || !q.deadline) return false;
+             if (q.status === 'done') return false; 
+             return dateStr >= q.startDate && dateStr <= q.deadline;
+          });
+
+          const isSelected = formatDateStr(selectedDate) === dateStr;
+          const isToday = formatDateStr(new Date()) === dateStr;
+
+          grid.push(
+            <div 
+                key={day} 
+                onClick={() => setSelectedDate(dateObj)}
+                className={`min-h-[60px] p-2 relative flex flex-col gap-1 overflow-hidden cursor-pointer transition-all rounded-xl border-2 ${isSelected ? 'bg-white border-kosame-bluedark shadow-[0_2px_0_0_#cceaff]' : 'bg-white/70 border-transparent hover:border-kosame-blue'}`}
+            >
+              <span className={`text-xs font-bold text-center w-6 h-6 rounded-full flex items-center justify-center ${isToday ? 'bg-kosame-yellow text-white' : 'text-kosame-brown'}`}>
+                {day}
+              </span>
+              
+              <div className="flex flex-col gap-1 w-full mt-1">
+                {activeTasks.slice(0, 3).map((q, idx) => (
+                   <div key={q.id} className={`h-1.5 w-full rounded-full ${q.type === 'urgent' ? 'bg-red-300' : 'bg-kosame-blue'}`}></div>
+                ))}
+                {activeTasks.length > 3 && <div className="text-[8px] text-center text-kosame-brown font-bold">+{activeTasks.length - 3}</div>}
+              </div>
+            </div>
+          );
+        }
+        return grid;
+      };
+
+      const selectedDateStr = formatDateStr(selectedDate);
+      const tasksForSelectedDate = queues.filter(q => {
+          if (!q.startDate || !q.deadline) return false;
+          if (q.status === 'done') return false;
+          return selectedDateStr >= q.startDate && selectedDateStr <= q.deadline;
+      });
+
+      return (
+        <div className="animate-fade-in pb-32">
+            <div className="flex justify-between items-center mb-6 px-4 kosame-card py-4">
+                <button onClick={prevMonth} className="p-2 text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors"><ChevronLeft size={24}/></button>
+                <div className="text-center">
+                    <h2 className="text-xl font-bold text-kosame-browndark">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
+                </div>
+                <button onClick={nextMonth} className="p-2 text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors"><ChevronRight size={24}/></button>
+            </div>
+
+            <div className="grid grid-cols-7 gap-1 mb-6">
+                {daysOfWeek.map(d => (
+                    <div key={d} className="py-2 text-center text-xs font-bold text-kosame-brown">{d}</div>
+                ))}
+                {renderGrid()}
+            </div>
+
+            <div className="space-y-4 animate-slide-up bg-white/80 backdrop-blur-sm rounded-3xl p-5 border-2 border-kosame-cream shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                    <div className="w-8 h-8 rounded-full bg-kosame-yellow flex items-center justify-center text-white"><CalendarDays size={16}/></div>
+                    <h3 className="text-sm font-bold text-kosame-browndark">
+                        งานประจำวันที่ {selectedDate.toLocaleDateString('th-TH')}
+                    </h3>
+                </div>
+
+                {tasksForSelectedDate.length > 0 ? (
+                    tasksForSelectedDate.map(q => (
+                        <QueueCard key={q.id} data={q} onStatusChange={onStatusChange} onEdit={onEdit} isAdmin={isAdmin} />
+                    ))
+                ) : (
+                    <div className="text-center py-10 bg-kosame-bg rounded-2xl border-2 border-dashed border-kosame-cream">
+                        <p className="text-sm text-kosame-brown font-semibold">ไม่มีงานค้างสำหรับวันนี้จ้า 🌟</p>
+                    </div>
+                )}
+            </div>
+        </div>
+      );
+    };
+
+    function App() {
+      const [activeTab, setActiveTab] = useState('home');
+      const [userRole, setUserRole] = useState('guest'); 
+      const [isQueueOpen, setIsQueueOpen] = useState(true);
+      const [note, setNote] = useState('กำลังโหลดข้อมูล...');
+      const [queues, setQueues] = useState([]);
+      const [isLoading, setIsLoading] = useState(true);
+
+      const [isModalOpen, setIsModalOpen] = useState(false);
+      const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+      const [passwordInput, setPasswordInput] = useState('');
+      const [loginError, setLoginError] = useState(false);
+      const [nextAvailableDate, setNextAvailableDate] = useState(''); 
+      
+      const [searchTerm, setSearchTerm] = useState('');
+      const [listSubTab, setListSubTab] = useState('active'); 
+      const [editingId, setEditingId] = useState(null);
+
+      const [formState, setFormState] = useState({
+        type: 'normal', customerName: '', channel: '', workType: '', startDate: '', deadline: '', paymentStatus: 'unpaid', status: 'todo'
+      });
+
+      const isAdmin = userRole === 'admin';
+
+      useEffect(() => { fetchData(); }, []);
+
+      const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const data = await server.getData();
+            setQueues(data.queues || []);
+            setIsQueueOpen(data.settings?.isOpen ?? true);
+            setNote(data.settings?.note || '');
+            setNextAvailableDate(data.settings?.nextAvailableDate || '');
+        } catch (error) {
+            console.error("Error fetching data", error);
+            setNote("ไม่สามารถโหลดข้อมูลได้ ลองรีเฟรชใหม่อีกครั้งนะคะ");
+        } finally {
+            setIsLoading(false);
+        }
+      };
+
+      const handleStatusChange = async (id, newStatus) => {
+        if (!isAdmin) return;
+        const oldQueues = [...queues];
+        const targetQueue = queues.find(q => q.id === id);
+        setQueues(queues.map(q => q.id === id ? { ...q, status: newStatus } : q));
+        
+        try { 
+            await server.updateQueue({ ...targetQueue, status: newStatus }); 
+        } catch(e) { 
+            setQueues(oldQueues); 
+            alert("อัปเดตสถานะไม่สำเร็จ"); 
+        }
+      };
+
+      const openAddModal = () => {
+        if (!isAdmin) return;
+        setEditingId(null);
+        setFormState({
+            type: 'normal', customerName: '', channel: '', workType: '', startDate: getLocalToday(), deadline: '', paymentStatus: 'unpaid', status: 'todo'
+        });
+        setIsModalOpen(true);
+      };
+
+      const openEditModal = (queue) => {
+        if (!isAdmin) return;
+        setEditingId(queue.id);
+        setFormState({ ...queue });
+        setIsModalOpen(true);
+      };
+
+      const handleDelete = async () => {
+        if (editingId && isAdmin && window.confirm("ต้องการลบข้อมูลนี้ใช่หรือไม่?")) {
+            setIsModalOpen(false);
+            setIsLoading(true);
+            const newData = await server.deleteQueue(editingId);
+            setQueues(newData.queues);
+            setIsLoading(false);
+        }
+      };
+
+      const handleSubmit = async () => {
+        if (!isAdmin) return;
+        setIsModalOpen(false);
+        setIsLoading(true);
+        try {
+            let result;
+            if (editingId) {
+                result = await server.updateQueue({ ...formState, id: editingId });
+            } else {
+                result = await server.addQueue({ ...formState, id: Date.now() });
+            }
+            setQueues(result.queues);
+        } catch(e) {
+            alert("บันทึกไม่สำเร็จ: " + (e.message || e));
+            console.error(e);
+        } finally {
+            setIsLoading(false);
+        }
+      };
+
+      const saveSystemConfig = async (key, value) => {
+         if (!isAdmin) return;
+         try { await server.saveSettings({ [key]: value }); } catch(e) { console.error("Save setting error", e); }
+      };
+
+      const setAndSaveIsQueueOpen = (val) => { setIsQueueOpen(val); saveSystemConfig('isOpen', val); };
+      const setAndSaveNote = (val) => { setNote(val); };
+      const handleNoteBlur = () => saveSystemConfig('note', note);
+      const setAndSaveDate = (val) => { setNextAvailableDate(val); saveSystemConfig('nextAvailableDate', val); };
+
+      const handleToggleRole = () => {
+        if (isAdmin) { setUserRole('guest'); } else { setIsLoginModalOpen(true); setLoginError(false); setPasswordInput(''); }
+      };
+
+      const attemptLogin = () => {
+        if (passwordInput === ADMIN_PASSWORD) {
+          setUserRole('admin'); setIsLoginModalOpen(false); setPasswordInput(''); setLoginError(false);
+        } else {
+          setLoginError(true); setTimeout(() => setLoginError(false), 2000);
+        }
+      };
+
+      const formatDateDisplay = (dateString) => {
+        if (!dateString) return "ยังไม่ระบุ";
+        try {
+            const d = new Date(dateString);
+            return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
+        } catch (e) { return dateString; }
+      };
+
+      const getLocalToday = () => {
+        const d = new Date();
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+      };
+
+      const today = getLocalToday();
+      
+      const activeQueues = queues.filter(q => {
+        if (q.status === 'done') return false;
+        if (!q.startDate) return false;
+        if (q.deadline) { return today >= q.startDate && today <= q.deadline; }
+        return today >= q.startDate;
+      });
+
+      const filteredQueues = queues.filter(q => {
+        const matchesSearch = q.customerName.toLowerCase().includes(searchTerm.toLowerCase()) || q.workType.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesTab = listSubTab === 'active' ? q.status !== 'done' : q.status === 'done';
+        return matchesSearch && matchesTab;
+      });
+
+      return (
+        <div className="min-h-screen pb-32 max-w-md mx-auto relative pt-10 px-5 text-kosame-brown">
+          <SkyBackground />
+          
+          <div className="sticky top-6 z-40 px-4 py-3 flex justify-between items-center bg-white/90 backdrop-blur-md rounded-2xl kosame-card mb-6 border border-kosame-cream">
+            <div className="flex flex-col">
+               <h1 className="text-xl font-bold text-kosame-browndark tracking-wider">KOSAME</h1>
+               <div className="flex items-center gap-2 mt-0.5">
+                   <span className="text-[10px] text-kosame-brown bg-kosame-cream px-2 py-0.5 rounded-md font-bold uppercase tracking-widest">Queue System</span>
+               </div>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={handleToggleRole} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isAdmin ? 'bg-kosame-blue text-white' : 'bg-kosame-bg text-kosame-brown hover:bg-kosame-cream'}`}>
+                  {isAdmin ? <ShieldCheck size={16} /> : <Lock size={16} />}
+              </button>
+              {isAdmin && (
+                <button onClick={openAddModal} className="w-9 h-9 rounded-full bg-kosame-yellow text-white flex items-center justify-center hover:scale-105 shadow-sm transition-all"><Plus size={18} strokeWidth={3} /></button>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-6 relative z-10">
+            {isLoading && (
+               <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+                  <div className="flex flex-col items-center gap-3 bg-white p-6 rounded-3xl kosame-card border-2 border-kosame-blue">
+                    <div className="w-10 h-10 border-4 border-kosame-blue border-t-kosame-yellow rounded-full animate-spin"></div>
+                    <span className="text-sm font-bold text-kosame-browndark">กำลังโหลดข้อมูล...</span>
+                  </div>
+               </div>
+            )}
+
+            {activeTab === 'home' && (
+                <div className="animate-pop">
+                    <div className="p-5 relative overflow-hidden kosame-card bg-white/95">
+                        <div className="flex justify-between items-start mb-4 relative z-10">
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                    <div className={`w-2.5 h-2.5 rounded-full ${isQueueOpen ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`}></div>
+                                    <h2 className={`text-xl font-bold ${isQueueOpen ? 'text-kosame-browndark' : 'text-red-400'}`}>{isQueueOpen ? 'เปิดรับคิวปกติ' : 'ปิดรับคิวชั่วคราว'}</h2>
+                                </div>
+                            </div>
+                            {isAdmin && (
+                              <button onClick={() => setAndSaveIsQueueOpen(!isQueueOpen)} className="bg-kosame-cream text-kosame-browndark hover:bg-kosame-yellow hover:text-white px-3 py-1.5 text-xs font-bold rounded-xl transition-all">{isQueueOpen ? 'ปิดรับ' : 'เปิดรับ'}</button>
+                            )}
+                        </div>
+
+                        {/* กล่องข้อความ Notice ความสูง 40px */}
+                        <div className="relative h-[40px] flex items-center bg-kosame-bg border border-kosame-cream rounded-xl overflow-hidden mb-4 shadow-sm">
+                            <div className="bg-kosame-yellow text-white text-[10px] font-bold px-3 h-full flex items-center z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
+                                NOTICE
+                            </div>
+                            <div className="flex-1 overflow-hidden h-full flex items-center relative w-full">
+                                {isAdmin ? (
+                                    <input 
+                                        className="w-full h-full bg-transparent px-3 text-[13px] text-kosame-brown focus:outline-none" 
+                                        value={note} 
+                                        onChange={(e) => setAndSaveNote(e.target.value)} 
+                                        onBlur={handleNoteBlur} 
+                                        placeholder="ประกาศข้อความถึงลูกค้า..." 
+                                    />
+                                ) : (
+                                    <div className="animate-marquee text-[13px] text-kosame-brown font-medium w-full">
+                                        {note || "ไม่มีประกาศในขณะนี้"}
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                        
+                        <div className="flex items-center gap-3 bg-white border border-kosame-cream rounded-xl p-3 shadow-sm">
+                              <div className="w-10 h-10 rounded-full bg-kosame-cream text-kosame-yellow flex items-center justify-center"><Calendar size={18}/></div>
+                              <div className="flex flex-col flex-1">
+                                  <span className="text-[11px] text-kosame-brown font-bold">คิวว่างรอบถัดไปประมาณวันที่</span>
+                                  {isAdmin ? (
+                                    <input type="date" className="bg-transparent border-none outline-none font-bold text-kosame-browndark w-full cursor-pointer text-sm" value={nextAvailableDate} onChange={(e) => setAndSaveDate(e.target.value)} />
+                                  ) : (
+                                    <span className="font-extrabold text-kosame-blue text-sm">{formatDateDisplay(nextAvailableDate)}</span>
+                                  )}
+                              </div>
+                        </div>
+                    </div>
+                    
+                    <div className="animate-fade-in mt-8">
+                        <div className="flex justify-center mb-5 px-2">
+                             <span className="bg-kosame-yellow text-white px-4 py-1.5 rounded-full text-xs font-bold shadow-sm">
+                                Active Queue ({activeQueues.length})
+                             </span>
+                        </div>
+                        <div className="space-y-3">
+                            {activeQueues.length > 0 ? (
+                                activeQueues.map(q => <QueueCard key={q.id} data={q} onStatusChange={handleStatusChange} onEdit={openEditModal} isAdmin={isAdmin} />)
+                            ) : (
+                                <div className="text-center py-12 kosame-card bg-white/50 border-dashed">
+                                    <p className="text-sm font-semibold text-kosame-blue">ว้าว! วันนี้งานเคลียร์หมดแล้ว 🎉</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'list' && (
+                <div className="animate-fade-in space-y-5">
+                    <div className="relative group">
+                        <div className="absolute left-4 top-1/2 -translate-y-1/2 text-kosame-blue"><Search size={18} /></div>
+                        <input type="text" placeholder="ค้นหาชื่อลูกค้า หรืองาน..." className="w-full bg-white border-2 border-kosame-cream rounded-full py-3 pl-12 pr-4 text-sm text-kosame-browndark placeholder-kosame-brown/50 focus:outline-none focus:border-kosame-blue transition-all shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
+                    </div>
+                    
+                    <div className="flex p-1 bg-white border border-kosame-cream rounded-full shadow-sm">
+                        <button onClick={() => setListSubTab('active')} className={`flex-1 py-2 text-[12px] font-bold rounded-full transition-all ${listSubTab === 'active' ? 'bg-kosame-blue text-white shadow-sm' : 'text-kosame-brown hover:bg-kosame-cream'}`}>คิวงานปัจจุบัน</button>
+                        <button onClick={() => setListSubTab('history')} className={`flex-1 py-2 text-[12px] font-bold rounded-full transition-all ${listSubTab === 'history' ? 'bg-kosame-yellow text-white shadow-sm' : 'text-kosame-brown hover:bg-kosame-cream'}`}>ประวัติงานเสร็จ</button>
+                    </div>
+
+                    <div className="space-y-3 pb-24">
+                        {filteredQueues.length > 0 ? (
+                            filteredQueues.map(q => <QueueCard key={q.id} data={q} onStatusChange={handleStatusChange} onEdit={openEditModal} isAdmin={isAdmin} />)
+                        ) : (
+                            <div className="text-center py-20 bg-white/50 border-2 border-dashed border-kosame-cream rounded-3xl">
+                                 <p className="text-sm font-semibold text-kosame-brown">ไม่พบข้อมูลที่ค้นหา 🕵️‍♀️</p>
+                            </div>
+                        )}
+                    </div>
+                </div>
+            )}
+            
+            {activeTab === 'calendar' && isAdmin && (
+                <CalendarView queues={queues} onStatusChange={handleStatusChange} onEdit={openEditModal} isAdmin={isAdmin} />
+            )}
+          </div>
+
+          {/* Login Modal */}
+          {isLoginModalOpen && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-kosame-bg/80 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white w-full max-w-xs p-8 kosame-card relative text-center">
+                    <button onClick={() => setIsLoginModalOpen(false)} className="absolute top-4 right-4 text-kosame-brown hover:text-kosame-browndark bg-kosame-cream rounded-full p-1"><X size={20} /></button>
+                    <div className="flex flex-col items-center gap-3 mb-6">
+                        <div className="w-16 h-16 bg-kosame-yellow rounded-full flex items-center justify-center text-white mb-2"><Key size={32} /></div>
+                        <h2 className="text-xl font-extrabold text-kosame-browndark">ยืนยันตัวตน</h2>
+                        <p className="text-xs text-kosame-brown">กรุณาใส่รหัสผ่านเพื่อจัดการระบบ</p>
+                    </div>
+                    <div className="space-y-4">
+                        <input autoFocus type="password" placeholder="รหัสผ่าน" className="w-full bg-kosame-bg border-2 border-kosame-cream rounded-xl py-3 text-center text-kosame-browndark tracking-[0.2em] focus:border-kosame-blue focus:outline-none" value={passwordInput} onChange={(e) => setPasswordInput(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && attemptLogin()} />
+                        <button onClick={attemptLogin} className="w-full bg-kosame-blue hover:bg-kosame-bluedark text-white font-bold py-3 rounded-xl transition-all text-sm shadow-sm">เข้าสู่ระบบ</button>
+                        {loginError && <p className="text-[11px] text-red-500 text-center font-bold">รหัสผ่านไม่ถูกต้อง ลับเฉพาะแอดมินเท่านั้น!</p>}
+                    </div>
+                </div>
+            </div>
+          )}
+
+          {/* Add/Edit Modal */}
+          {isModalOpen && isAdmin && (
+            <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-4 bg-black/30 backdrop-blur-sm animate-fade-in">
+                <div className="bg-white w-full max-w-sm p-6 kosame-card animate-slide-up relative">
+                    <button onClick={() => setIsModalOpen(false)} className="absolute top-5 right-5 text-kosame-brown bg-kosame-cream rounded-full p-1 hover:bg-kosame-yellow hover:text-white transition-colors"><X size={20} /></button>
+                    <h2 className="text-xl font-extrabold text-kosame-browndark mb-5 flex items-center gap-2">
+                        <span className="bg-kosame-blue w-2 h-6 rounded-full inline-block"></span>
+                        {editingId ? 'แก้ไขข้อมูลคิวงาน' : 'เพิ่มคิวงานใหม่'}
+                    </h2>
+                    
+                    <div className="space-y-4 max-h-[65vh] overflow-y-auto pr-2 custom-scrollbar">
+                         <div className="flex bg-kosame-bg p-1.5 rounded-xl border border-kosame-cream">
+                            <button className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${formState.type === 'normal' ? 'bg-kosame-blue text-white shadow-sm' : 'text-kosame-brown'}`} onClick={() => setFormState({...formState, type: 'normal'})}>คิวปกติ</button>
+                            <button className={`flex-1 py-2 text-xs font-bold rounded-lg transition ${formState.type === 'urgent' ? 'bg-red-400 text-white shadow-sm' : 'text-kosame-brown'}`} onClick={() => setFormState({...formState, type: 'urgent'})}>งานด่วน 🔥</button>
+                        </div>
+                        
+                        {[
+                          { label: 'ชื่อลูกค้า', key: 'customerName', icon: User, placeholder: 'ชื่อลูกค้า, ร้านค้า' },
+                          { label: 'ช่องทางติดต่อ', key: 'channel', icon: MessageSquare, placeholder: 'Line, Facebook...' },
+                          { label: 'รายละเอียดงาน', key: 'workType', icon: Briefcase, placeholder: 'เช่น วาด Emote' }
+                        ].map((field) => (
+                            <div key={field.key}>
+                                <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">{field.label}</label>
+                                <div className="relative group">
+                                    <div className="absolute left-3 top-2.5 text-kosame-blue group-focus-within:text-kosame-yellow"><field.icon size={16}/></div>
+                                    <input type="text" className="w-full bg-white border-2 border-kosame-cream rounded-xl py-2 pl-10 pr-3 text-sm text-kosame-browndark focus:outline-none focus:border-kosame-blue" placeholder={field.placeholder} value={formState[field.key]} onChange={e => setFormState({...formState, [field.key]: e.target.value})} />
+                                </div>
+                            </div>
+                        ))}
+
+                        <div className="grid grid-cols-2 gap-3">
+                            <div>
+                                <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">วันที่เริ่มงาน</label>
+                                <input type="date" className="w-full bg-white border-2 border-kosame-cream rounded-xl py-1.5 px-3 text-xs text-kosame-browndark focus:outline-none focus:border-kosame-blue h-10" value={formState.startDate} onChange={e => setFormState({...formState, startDate: e.target.value})} />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">กำหนดส่งงาน</label>
+                                <input type="date" className="w-full bg-white border-2 border-kosame-cream rounded-xl py-1.5 px-3 text-xs text-kosame-browndark focus:outline-none focus:border-kosame-blue h-10" value={formState.deadline} onChange={e => setFormState({...formState, deadline: e.target.value})} />
+                            </div>
+                        </div>
+
+                         <div>
+                            <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">สถานะการชำระเงิน</label>
+                            <div className="relative">
+                                <div className="absolute left-3 top-2.5 text-kosame-blue"><CreditCard size={16}/></div>
+                                <select className="w-full bg-white border-2 border-kosame-cream rounded-xl py-2 pl-10 pr-4 text-sm text-kosame-browndark focus:outline-none focus:border-kosame-blue appearance-none" value={formState.paymentStatus} onChange={e => setFormState({...formState, paymentStatus: e.target.value})}>
+                                    <option value="unpaid">รอยืนยัน / รอชำระ</option>
+                                    <option value="deposit">มัดจำแล้วบางส่วน</option>
+                                    <option value="paid">ชำระเงินเต็มจำนวนแล้ว</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div className="flex gap-3 mt-6 pt-4 border-t border-kosame-cream">
+                        {editingId && (
+                            <button onClick={handleDelete} className="bg-red-50 text-red-500 border border-red-100 py-3 px-4 rounded-xl flex items-center justify-center hover:bg-red-100 transition"><Trash2 size={18} /></button>
+                        )}
+                        <button onClick={handleSubmit} className="flex-1 bg-kosame-yellow hover:bg-[#ebd453] text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">{editingId ? 'บันทึกการแก้ไข' : 'เพิ่มคิวเลย!'}</button>
+                    </div>
+                </div>
+            </div>
+          )}
+
+          {/* Bottom Nav */}
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl border-2 border-kosame-blue shadow-[0_4px_0_0_#cceaff] rounded-full px-6 py-2 flex items-center justify-around w-[85%] max-w-[320px] z-40">
+             <button onClick={() => window.location.href = 'index.html'} className={`flex flex-col items-center gap-1 transition-all text-kosame-brown hover:text-kosame-yellow`}>
+                <div className={`p-2 rounded-full transition-all`}><ArrowLeft size={22} /></div>
+             </button>
+             <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'home' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                <div className={`${activeTab === 'home' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><Home size={22} /></div>
+             </button>
+             {isAdmin && (
+                <button onClick={() => setActiveTab('calendar')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                    <div className={`${activeTab === 'calendar' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><CalendarDays size={22} /></div>
+                </button>
+             )}
+             <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'list' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                <div className={`${activeTab === 'list' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><List size={22} /></div>
+             </button>
+          </div>
+        </div>
+      );
+    }
 
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
