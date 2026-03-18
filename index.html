@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <base target="_top">
-  <title>Kosame - Queue System</title>
+  <title>Kosame - check queue</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -123,7 +123,8 @@
   <script type="text/babel">
     const { useState, useEffect, useRef } = React;
     
-    const API_URL = "https://script.google.com/macros/s/AKfycbx6VUsx5lG8XJMbl04ZczeBgJg_icxxxpf2hC10piRo48JVqcGtcOWLnpKUdnJ85XA/exec"; 
+    // ⚠️ อย่าลืมใส่ URL ของ Web App ให้ถูกต้อง ⚠️
+    const API_URL = "https://script.google.com/macros/s/xxxxxxxxxxxx/exec"; 
 
     const server = {
       request: async (action, payload = null) => {
@@ -213,9 +214,10 @@
 
     const StatusBadge = ({ type }) => {
       const isUrgent = type === 'urgent';
+      if (!isUrgent) return null; 
       return (
-        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border ${isUrgent ? 'bg-red-50 text-red-500 border-red-200' : 'bg-kosame-cream text-kosame-brown border-kosame-cream'}`}>
-          {isUrgent ? 'Urgent' : 'Normal'}
+        <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider border bg-red-50 text-red-500 border-red-200">
+          Urgent
         </span>
       );
     };
@@ -227,7 +229,7 @@
         unpaid: { color: 'text-slate-500 bg-slate-50 border-slate-200', label: 'รอชำระ' },
       };
       const current = config[status] || config.unpaid;
-      return <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide border ${current.color}`}>{current.label}</span>;
+      return <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-bold tracking-wide border flex-shrink-0 ${current.color}`}>{current.label}</span>;
     };
 
     const QueueCard = ({ data, onStatusChange, onEdit, isAdmin }) => {
@@ -249,16 +251,26 @@
         >
            <div className={`kosame-card p-3 relative transition-all flex gap-3 ${isDoing ? 'bg-white border-kosame-bluedark' : 'bg-white/90'}`}>
                <div className="flex-1 w-full">
+                   
+                   {/* บรรทัดแรก: เลขคิว + ชื่อลูกค้า + ป้ายช่องทาง + ป้าย Urgent + ปุ่มสถานะ */}
                    <div className="flex justify-between items-start mb-1">
-                       <div className="flex flex-wrap gap-1.5 items-center">
-                           <span className="w-6 h-6 rounded-full bg-kosame-blue text-white flex items-center justify-center font-bold text-[10px] tracking-tighter shadow-sm">
+                       <div className="flex flex-wrap gap-2 items-center">
+                           <span className="w-6 h-6 rounded-full bg-kosame-blue text-white flex items-center justify-center font-bold text-[10px] tracking-tighter shadow-sm flex-shrink-0">
                                {String(data.id).slice(-3)}
                            </span>
+                           <h3 className={`font-bold text-[15px] leading-tight truncate max-w-[100px] sm:max-w-[120px] ${isDone ? 'text-kosame-brown line-through' : 'text-kosame-browndark'}`}>
+                               {data.customerName || 'ชื่อลูกค้า'}
+                           </h3>
+                           
+                           {/* ป้ายช่องทางติดต่อ */}
+                           <span className="text-[9px] px-1.5 py-0.5 rounded-md font-bold tracking-wide border bg-kosame-cream text-kosame-brown border-kosame-cream/50 flex items-center gap-1 truncate max-w-[80px]">
+                               <MessageSquare size={10} className="text-kosame-yellow flex-shrink-0"/> {data.channel || 'ช่องทาง'}
+                           </span>
+
                            <StatusBadge type={data.type} />
-                           <PaymentBadge status={data.paymentStatus} />
                        </div>
 
-                       <div className="relative ml-auto pl-2">
+                       <div className="relative ml-auto pl-2 flex-shrink-0">
                            <button 
                                onClick={(e) => { 
                                    e.stopPropagation(); 
@@ -283,22 +295,20 @@
                        </div>
                    </div>
 
-                   <h3 className={`font-bold text-[15px] leading-tight mt-1 mb-1.5 ${isDone ? 'text-kosame-brown line-through' : 'text-kosame-browndark'}`}>
-                       {data.workType || 'Untitled Project'}
-                   </h3>
+                   {/* บรรทัดที่สอง: ประเภทงาน + (รายละเอียดเพิ่มเติม) */}
+                   <div className="flex items-center gap-1.5 text-[11px] text-kosame-brown mb-2">
+                       <span className="font-semibold text-kosame-browndark flex items-center gap-1 truncate max-w-full">
+                           <Briefcase size={12} className="text-kosame-blue flex-shrink-0"/> {data.workType || 'ชื่องาน'}
+                           {data.description && <span className="text-[10px] text-kosame-brown font-normal truncate">({data.description})</span>}
+                       </span>
+                   </div>
 
-                   {/* ปรับให้เรียงบรรทัดเดียวกัน และดันวันที่ไปชิดขวา */}
-                   <div className="flex items-center justify-between text-[10px] text-kosame-brown">
-                        {/* ส่วนชื่อลูกค้าและช่องทาง (ชิดซ้าย) */}
-                        <div className="flex items-center gap-1.5 truncate">
-                            <span className="font-semibold text-kosame-browndark flex items-center gap-1 truncate"><User size={10} className="text-kosame-blue flex-shrink-0"/> <span className="truncate max-w-[80px]">{data.customerName || 'ลูกค้า'}</span></span>
-                            <span className="text-kosame-blue flex-shrink-0">|</span>
-                            <span className="truncate max-w-[60px]">{data.channel || 'ช่องทาง'}</span>
-                        </div>
+                   {/* บรรทัดที่สาม: ป้ายชำระเงิน + กล่องวันที่ */}
+                   <div className="flex items-center justify-between mt-1">
+                        <PaymentBadge status={data.paymentStatus} />
                         
-                        {/* ส่วนวันที่ (ชิดขวา) */}
-                        <div className="flex items-center gap-1 bg-kosame-bg px-1.5 py-0.5 rounded-md border border-kosame-cream/50 flex-shrink-0">
-                            <span className="flex items-center gap-0.5"><Calendar size={10} className="text-kosame-yellow"/> {data.startDate}</span>
+                        <div className="flex items-center gap-1 bg-kosame-bg px-1.5 py-0.5 rounded-md border border-kosame-cream/50 flex-shrink-0 text-[9px]">
+                            <span className="flex items-center gap-0.5 text-kosame-brown"><Calendar size={10} className="text-kosame-yellow"/> {data.startDate}</span>
                             <span className="text-kosame-blue opacity-50">|</span>
                             <span className="font-semibold text-kosame-browndark">ส่ง: {data.deadline}</span>
                         </div>
@@ -357,7 +367,7 @@
                 onClick={() => setSelectedDate(dateObj)}
                 className={`min-h-[60px] p-2 relative flex flex-col gap-1 overflow-hidden cursor-pointer transition-all rounded-xl border-2 ${isSelected ? 'bg-white border-kosame-bluedark shadow-[0_2px_0_0_#cceaff]' : 'bg-white/70 border-transparent hover:border-kosame-blue'}`}
             >
-              <span className={`text-xs font-bold text-center w-6 h-6 rounded-full flex items-center justify-center ${isToday ? 'bg-kosame-yellow text-white' : 'text-kosame-brown'}`}>
+              <span className={`text-xs font-bold text-center w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${isToday ? 'bg-kosame-yellow text-white' : 'text-kosame-brown'}`}>
                 {day}
               </span>
               
@@ -383,11 +393,11 @@
       return (
         <div className="animate-fade-in pb-32">
             <div className="flex justify-between items-center mb-6 px-4 kosame-card py-4">
-                <button onClick={prevMonth} className="p-2 text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors"><ChevronLeft size={24}/></button>
+                <button onClick={prevMonth} className="w-10 h-10 flex items-center justify-center text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors flex-shrink-0"><ChevronLeft size={24}/></button>
                 <div className="text-center">
                     <h2 className="text-xl font-bold text-kosame-browndark">{monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}</h2>
                 </div>
-                <button onClick={nextMonth} className="p-2 text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors"><ChevronRight size={24}/></button>
+                <button onClick={nextMonth} className="w-10 h-10 flex items-center justify-center text-kosame-blue hover:text-kosame-yellow bg-kosame-cream rounded-full transition-colors flex-shrink-0"><ChevronRight size={24}/></button>
             </div>
 
             <div className="grid grid-cols-7 gap-1 mb-6">
@@ -399,7 +409,7 @@
 
             <div className="space-y-4 animate-slide-up bg-white/80 backdrop-blur-sm rounded-3xl p-5 border-2 border-kosame-cream shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-full bg-kosame-yellow flex items-center justify-center text-white"><CalendarDays size={16}/></div>
+                    <div className="w-8 h-8 rounded-full bg-kosame-yellow flex items-center justify-center text-white flex-shrink-0"><CalendarDays size={16}/></div>
                     <h3 className="text-sm font-bold text-kosame-browndark">
                         งานประจำวันที่ {selectedDate.toLocaleDateString('th-TH')}
                     </h3>
@@ -438,7 +448,7 @@
       const [editingId, setEditingId] = useState(null);
 
       const [formState, setFormState] = useState({
-        type: 'normal', customerName: '', channel: '', workType: '', startDate: '', deadline: '', paymentStatus: 'unpaid', status: 'todo'
+        type: 'normal', customerName: '', channel: '', workType: '', description: '', startDate: '', deadline: '', paymentStatus: 'unpaid', status: 'todo'
       });
 
       const isAdmin = userRole === 'admin';
@@ -479,7 +489,7 @@
         if (!isAdmin) return;
         setEditingId(null);
         setFormState({
-            type: 'normal', customerName: '', channel: '', workType: '', startDate: getLocalToday(), deadline: '', paymentStatus: 'unpaid', status: 'todo'
+            type: 'normal', customerName: '', channel: '', workType: '', description: '', startDate: getLocalToday(), deadline: '', paymentStatus: 'unpaid', status: 'todo'
         });
         setIsModalOpen(true);
       };
@@ -582,15 +592,15 @@
             <div className="flex flex-col">
                <h1 className="text-xl font-bold text-kosame-browndark tracking-wider">KOSAME</h1>
                <div className="flex items-center gap-2 mt-0.5">
-                   <span className="text-[10px] text-kosame-brown bg-kosame-cream px-2 py-0.5 rounded-md font-bold uppercase tracking-widest">Queue System</span>
+                   <span className="text-[10px] text-kosame-brown bg-kosame-cream px-2 py-0.5 rounded-md font-bold tracking-widest">check queue</span>
                </div>
             </div>
             <div className="flex gap-2">
-              <button onClick={handleToggleRole} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all ${isAdmin ? 'bg-kosame-blue text-white' : 'bg-kosame-bg text-kosame-brown hover:bg-kosame-cream'}`}>
+              <button onClick={handleToggleRole} className={`w-9 h-9 rounded-full flex items-center justify-center transition-all flex-shrink-0 ${isAdmin ? 'bg-kosame-blue text-white' : 'bg-kosame-bg text-kosame-brown hover:bg-kosame-cream'}`}>
                   {isAdmin ? <ShieldCheck size={16} /> : <Lock size={16} />}
               </button>
               {isAdmin && (
-                <button onClick={openAddModal} className="w-9 h-9 rounded-full bg-kosame-yellow text-white flex items-center justify-center hover:scale-105 shadow-sm transition-all"><Plus size={18} strokeWidth={3} /></button>
+                <button onClick={openAddModal} className="w-9 h-9 rounded-full bg-kosame-yellow text-white flex items-center justify-center hover:scale-105 shadow-sm transition-all flex-shrink-0"><Plus size={18} strokeWidth={3} /></button>
               )}
             </div>
           </div>
@@ -611,16 +621,16 @@
                         <div className="flex justify-between items-start mb-4 relative z-10">
                             <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-1">
-                                    <div className={`w-2.5 h-2.5 rounded-full ${isQueueOpen ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse`}></div>
+                                    <div className={`w-2.5 h-2.5 rounded-full ${isQueueOpen ? 'bg-emerald-400' : 'bg-red-400'} animate-pulse flex-shrink-0`}></div>
                                     <h2 className={`text-xl font-bold ${isQueueOpen ? 'text-kosame-browndark' : 'text-red-400'}`}>{isQueueOpen ? 'เปิดรับคิวปกติ' : 'ปิดรับคิวชั่วคราว'}</h2>
                                 </div>
                             </div>
                             {isAdmin && (
-                              <button onClick={() => setAndSaveIsQueueOpen(!isQueueOpen)} className="bg-kosame-cream text-kosame-browndark hover:bg-kosame-yellow hover:text-white px-3 py-1.5 text-xs font-bold rounded-xl transition-all">{isQueueOpen ? 'ปิดรับ' : 'เปิดรับ'}</button>
+                              <button onClick={() => setAndSaveIsQueueOpen(!isQueueOpen)} className="bg-kosame-cream text-kosame-browndark hover:bg-kosame-yellow hover:text-white px-3 py-1.5 text-xs font-bold rounded-xl transition-all flex-shrink-0">{isQueueOpen ? 'ปิดรับ' : 'เปิดรับ'}</button>
                             )}
                         </div>
 
-                        {/* กล่องข้อความ Notice ความสูง 40px */}
+                        {/* กล่องข้อความ Notice */}
                         <div className="relative h-[40px] flex items-center bg-kosame-bg border border-kosame-cream rounded-xl overflow-hidden mb-4 shadow-sm">
                             <div className="bg-kosame-yellow text-white text-[10px] font-bold px-3 h-full flex items-center z-10 shadow-[2px_0_4px_rgba(0,0,0,0.05)]">
                                 NOTICE
@@ -643,7 +653,7 @@
                         </div>
                         
                         <div className="flex items-center gap-3 bg-white border border-kosame-cream rounded-xl p-3 shadow-sm">
-                              <div className="w-10 h-10 rounded-full bg-kosame-cream text-kosame-yellow flex items-center justify-center"><Calendar size={18}/></div>
+                              <div className="w-10 h-10 rounded-full bg-kosame-cream text-kosame-yellow flex items-center justify-center flex-shrink-0"><Calendar size={18}/></div>
                               <div className="flex flex-col flex-1">
                                   <span className="text-[11px] text-kosame-brown font-bold">คิวว่างรอบถัดไปประมาณวันที่</span>
                                   {isAdmin ? (
@@ -707,7 +717,7 @@
           {isLoginModalOpen && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-kosame-bg/80 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white w-full max-w-xs p-8 kosame-card relative text-center">
-                    <button onClick={() => setIsLoginModalOpen(false)} className="absolute top-4 right-4 text-kosame-brown hover:text-kosame-browndark bg-kosame-cream rounded-full p-1"><X size={20} /></button>
+                    <button onClick={() => setIsLoginModalOpen(false)} className="absolute top-4 right-4 w-8 h-8 flex items-center justify-center p-0 text-kosame-brown hover:text-kosame-browndark bg-kosame-cream rounded-full"><X size={20} /></button>
                     <div className="flex flex-col items-center gap-3 mb-6">
                         <div className="w-16 h-16 bg-kosame-yellow rounded-full flex items-center justify-center text-white mb-2"><Key size={32} /></div>
                         <h2 className="text-xl font-extrabold text-kosame-browndark">ยืนยันตัวตน</h2>
@@ -726,9 +736,9 @@
           {isModalOpen && isAdmin && (
             <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center p-4 bg-black/30 backdrop-blur-sm animate-fade-in">
                 <div className="bg-white w-full max-w-sm p-6 kosame-card animate-slide-up relative">
-                    <button onClick={() => setIsModalOpen(false)} className="absolute top-5 right-5 text-kosame-brown bg-kosame-cream rounded-full p-1 hover:bg-kosame-yellow hover:text-white transition-colors"><X size={20} /></button>
+                    <button onClick={() => setIsModalOpen(false)} className="absolute top-5 right-5 w-8 h-8 flex items-center justify-center p-0 text-kosame-brown bg-kosame-cream rounded-full hover:bg-kosame-yellow hover:text-white transition-colors"><X size={20} /></button>
                     <h2 className="text-xl font-extrabold text-kosame-browndark mb-5 flex items-center gap-2">
-                        <span className="bg-kosame-blue w-2 h-6 rounded-full inline-block"></span>
+                        <span className="bg-kosame-blue w-2 h-6 rounded-full inline-block flex-shrink-0"></span>
                         {editingId ? 'แก้ไขข้อมูลคิวงาน' : 'เพิ่มคิวงานใหม่'}
                     </h2>
                     
@@ -741,7 +751,8 @@
                         {[
                           { label: 'ชื่อลูกค้า', key: 'customerName', icon: User, placeholder: 'ชื่อลูกค้า, ร้านค้า' },
                           { label: 'ช่องทางติดต่อ', key: 'channel', icon: MessageSquare, placeholder: 'Line, Facebook...' },
-                          { label: 'รายละเอียดงาน', key: 'workType', icon: Briefcase, placeholder: 'เช่น วาด Emote' }
+                          { label: 'ชื่องาน', key: 'workType', icon: Briefcase, placeholder: 'เช่น วาด Emote' },
+                          { label: 'รายละเอียดเพิ่มเติม', key: 'description', icon: List, placeholder: 'ระบุรายละเอียด...' }
                         ].map((field) => (
                             <div key={field.key}>
                                 <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">{field.label}</label>
@@ -787,21 +798,35 @@
           )}
 
           {/* Bottom Nav */}
-          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-white/95 backdrop-blur-xl border-2 border-kosame-blue shadow-[0_4px_0_0_#cceaff] rounded-full px-6 py-2 flex items-center justify-around w-[85%] max-w-[320px] z-40">
-             <button onClick={() => window.location.href = 'index.html'} className={`flex flex-col items-center gap-1 transition-all text-kosame-brown hover:text-kosame-yellow`}>
-                <div className={`p-2 rounded-full transition-all`}><ArrowLeft size={22} /></div>
-             </button>
-             <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'home' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
-                <div className={`${activeTab === 'home' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><Home size={22} /></div>
-             </button>
-             {isAdmin && (
-                <button onClick={() => setActiveTab('calendar')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
-                    <div className={`${activeTab === 'calendar' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><CalendarDays size={22} /></div>
-                </button>
-             )}
-             <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'list' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
-                <div className={`${activeTab === 'list' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><List size={22} /></div>
-             </button>
+          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 z-40 flex justify-center w-[95%] max-w-[360px]">
+             
+             {/* แถบ Nav จะเปลี่ยนขนาดและการแสดงผลตามสถานะ */}
+             <div className={`bg-white/95 backdrop-blur-xl border-2 border-kosame-blue shadow-[0_4px_0_0_#cceaff] rounded-full py-2 flex items-center transition-all duration-300 ${isAdmin ? 'justify-between w-full px-8' : 'justify-center gap-3 w-max px-5'}`}>
+                 
+                 <button onClick={() => window.location.href = 'https://ksm-bb.github.io/kosame/'} className={`flex items-center gap-1.5 transition-all text-kosame-brown hover:text-kosame-yellow`}>
+                    <div className={`p-2 rounded-full transition-all bg-kosame-cream text-kosame-yellow`}><ArrowLeft size={18} /></div>
+                    {!isAdmin && <span className="font-bold text-[13px] mr-1">กลับไปหน้าแรก</span>}
+                 </button>
+                 
+                 {/* เส้นแบ่งคั่น (ถ้าไม่ใช่แอดมินให้แสดงเส้นคั่นเพื่อความสวยงาม) */}
+                 {!isAdmin && <div className="h-6 w-px bg-kosame-cream/80"></div>}
+
+                 <button onClick={() => setActiveTab('home')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'home' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                    <div className={`${activeTab === 'home' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><Home size={22} /></div>
+                 </button>
+                 
+                 {isAdmin && (
+                    <button onClick={() => setActiveTab('calendar')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'calendar' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                        <div className={`${activeTab === 'calendar' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><CalendarDays size={22} /></div>
+                    </button>
+                 )}
+                 
+                 <button onClick={() => setActiveTab('list')} className={`flex flex-col items-center gap-1 transition-all ${activeTab === 'list' ? 'text-kosame-yellow scale-110' : 'text-kosame-brown hover:text-kosame-yellow'}`}>
+                    <div className={`${activeTab === 'list' ? 'bg-kosame-cream p-2' : 'p-2'} rounded-full transition-all`}><List size={22} /></div>
+                 </button>
+
+             </div>
+
           </div>
         </div>
       );
