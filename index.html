@@ -255,8 +255,8 @@
                    {/* บรรทัดแรก: เลขคิว + ชื่อลูกค้า + ป้ายช่องทาง + ป้าย Urgent + ปุ่มสถานะ */}
                    <div className="flex justify-between items-start mb-1">
                        <div className="flex flex-wrap gap-2 items-center">
-                           <span className="w-6 h-6 rounded-full bg-kosame-blue text-white flex items-center justify-center font-bold text-[10px] tracking-tighter shadow-sm flex-shrink-0">
-                               {String(data.id).slice(-3)}
+                           <span className="w-6 h-6 rounded-full bg-white border-2 border-kosame-blue text-kosame-blue flex items-center justify-center font-bold text-[10px] tracking-tighter shadow-sm flex-shrink-0">
+                               {data.queueNumber || String(data.id).slice(-3)}
                            </span>
                            <h3 className={`font-bold text-[15px] leading-tight truncate max-w-[100px] sm:max-w-[120px] ${isDone ? 'text-kosame-brown line-through' : 'text-kosame-browndark'}`}>
                                {data.customerName || 'ชื่อลูกค้า'}
@@ -459,7 +459,8 @@
         setIsLoading(true);
         try {
             const data = await server.getData();
-            setQueues(data.queues || []);
+            // แปลงคิวให้มี queueNumber (1, 2, 3...) ตามลำดับที่มีในฐานข้อมูล
+            setQueues(data.queues ? data.queues.map((q, i) => ({ ...q, queueNumber: i + 1 })) : []);
             setIsQueueOpen(data.settings?.isOpen ?? true);
             setNote(data.settings?.note || '');
             setNextAvailableDate(data.settings?.nextAvailableDate || '');
@@ -506,7 +507,7 @@
             setIsModalOpen(false);
             setIsLoading(true);
             const newData = await server.deleteQueue(editingId);
-            setQueues(newData.queues);
+            setQueues(newData.queues ? newData.queues.map((q, i) => ({ ...q, queueNumber: i + 1 })) : []);
             setIsLoading(false);
         }
       };
@@ -522,7 +523,7 @@
             } else {
                 result = await server.addQueue({ ...formState, id: Date.now() });
             }
-            setQueues(result.queues);
+            setQueues(result.queues ? result.queues.map((q, i) => ({ ...q, queueNumber: i + 1 })) : []);
         } catch(e) {
             alert("บันทึกไม่สำเร็จ: " + (e.message || e));
             console.error(e);
@@ -676,7 +677,7 @@
                                 activeQueues.map(q => <QueueCard key={q.id} data={q} onStatusChange={handleStatusChange} onEdit={openEditModal} isAdmin={isAdmin} />)
                             ) : (
                                 <div className="text-center py-12 kosame-card bg-white/50 border-dashed">
-                                    <p className="text-sm font-semibold text-kosame-blue">ว้าว! วันนี้งานเคลียร์หมดแล้ว 🎉</p>
+                                    <p className="text-sm font-semibold text-kosame-blue">empty</p>
                                 </div>
                             )}
                         </div>
@@ -693,7 +694,7 @@
                     
                     <div className="flex p-1 bg-white border border-kosame-cream rounded-full shadow-sm">
                         <button onClick={() => setListSubTab('active')} className={`flex-1 py-2 text-[12px] font-bold rounded-full transition-all ${listSubTab === 'active' ? 'bg-kosame-blue text-white shadow-sm' : 'text-kosame-brown hover:bg-kosame-cream'}`}>คิวงานปัจจุบัน</button>
-                        <button onClick={() => setListSubTab('history')} className={`flex-1 py-2 text-[12px] font-bold rounded-full transition-all ${listSubTab === 'history' ? 'bg-kosame-yellow text-white shadow-sm' : 'text-kosame-brown hover:bg-kosame-cream'}`}>ประวัติงานเสร็จ</button>
+                        <button onClick={() => setListSubTab('history')} className={`flex-1 py-2 text-[12px] font-bold rounded-full transition-all ${listSubTab === 'history' ? 'bg-kosame-yellow text-white shadow-sm' : 'text-kosame-brown hover:bg-kosame-cream'}`}>งานเสร็จแล้ว</button>
                     </div>
 
                     <div className="space-y-3 pb-24">
@@ -775,13 +776,13 @@
                         </div>
 
                          <div>
-                            <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">สถานะการชำระเงิน</label>
+                            <label className="text-xs font-bold text-kosame-browndark mb-1.5 block">การชำระเงิน</label>
                             <div className="relative">
                                 <div className="absolute left-3 top-2.5 text-kosame-blue"><CreditCard size={16}/></div>
                                 <select className="w-full bg-white border-2 border-kosame-cream rounded-xl py-2 pl-10 pr-4 text-sm text-kosame-browndark focus:outline-none focus:border-kosame-blue appearance-none" value={formState.paymentStatus} onChange={e => setFormState({...formState, paymentStatus: e.target.value})}>
                                     <option value="unpaid">รอยืนยัน / รอชำระ</option>
-                                    <option value="deposit">มัดจำแล้วบางส่วน</option>
-                                    <option value="paid">ชำระเงินเต็มจำนวนแล้ว</option>
+                                    <option value="deposit">มัดจำแล้ว</option>
+                                    <option value="paid">ชำระแล้ว</option>
                                 </select>
                             </div>
                         </div>
@@ -835,7 +836,7 @@
     const root = ReactDOM.createRoot(document.getElementById('root'));
     root.render(<App />);
   </script>
-    <script>
+  <script>
   document.addEventListener('contextmenu', function(e) {
     e.preventDefault();
   });
